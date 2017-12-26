@@ -30,8 +30,14 @@ function getImages(html)
     	link = String($(link).attr('href'));
     	if (isImageLink(link)) filteredLinks.push(link);
     	else if (isAlbumLink(link)) downloadImages(link);
+    	else if (isSingleImgurImageLink(link)) filteredLinks.push(link + ".jpg");
   	});
 	return filteredLinks;
+}
+
+function isSingleImgurImageLink(link)
+{
+	return link.includes("http") && link.includes("imgur.com");
 }
 
 function getAlbumImages(html)
