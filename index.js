@@ -1,29 +1,23 @@
-var express = require('express');
-var app = express();
 var request = require('request');
 var cheerio = require('cheerio');
 var fs = require('fs');
 
-app.get('/', function(req, res)
+var url = 'https://www.reddit.com/r/wallpapers/top/?sort=top&t=all';
+downloadImages(url);
+
+function downloadImages(url)
 {
-	var url = 'https://www.reddit.com/r/wallpapers/top/?sort=top&t=day';
 	request(url, function(err, msg, html)
 	{
-		const images = getImages(html);
+		const images = isAlbumLink(url) ? getAlbumImages(html) : getImages(html);
 
 		images.forEach(function(image)
 		{
 			var filename = convertFileName(image);
-			request(image).pipe(fs.createWriteStream("images/" + filename + '.png'));
-			file = filename
+			request(image).pipe(fs.createWriteStream("images/" + filename));
 		})
-
-		
-		res.send("a");
 	});
-});
-
-app.listen('3000');
+}
 
 function getImages(html)
 {
@@ -34,13 +28,34 @@ function getImages(html)
 	var idx = 0;
   	$(links).each(function(i, link){
     	link = String($(link).attr('href'));
-    	if (link.includes("imgur") && link.includes("http") && !link.includes("/a/"))
-    	{
-    		filteredLinks.push(addJpg(link));
-    	}
+    	if (isImageLink(link)) filteredLinks.push(link);
+    	else if (isAlbumLink(link)) downloadImages(link);
   	});
-  	console.log(filteredLinks);
 	return filteredLinks;
+}
+
+function getAlbumImages(html)
+{
+	const $ = cheerio.load(html);
+
+	links = $('a');
+	var filteredLinks = [];
+	var idx = 0;
+  	$(links).each(function(i, link){
+    	link = String($(link).attr('href'));
+    	if (isImageLink(link)) filteredLinks.push(addHttp(link));
+  	});
+	return filteredLinks;
+}
+
+function isImageLink(link)
+{
+	return link.includes('.jpg') || link.includes('.png')
+}
+
+function isAlbumLink(link)
+{
+	return link.includes('/a/');
 }
 
 function addJpg(str)
@@ -49,10 +64,15 @@ function addJpg(str)
 	else return str;
 }
 
+// imgur links within albums don't contain http: prefix
+function addHttp(str)
+{
+	if(str.substring(0, 2) == "//") return "http:" + str;
+	else return str;
+}
+
 function convertFileName(a)
 {
-	var filename = a.slice(8, a.length - 4);
-	filename = filename.split('.').join('');
-	filename = filename.split('/').join('');
-	return filename;
+	// get last portion for unique name
+	return a.split('/')[3];
 }
